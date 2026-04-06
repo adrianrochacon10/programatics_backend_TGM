@@ -11,7 +11,7 @@ interface CreateReservationRequest {
   id_plan: string;
   fecha_inicio: string; // YYYY-MM-DD
   fecha_fin: string; // YYYY-MM-DD
-  id_usuario: string;
+  // id_usuario: string;
 }
 
 interface ReservationResponse {
@@ -38,21 +38,32 @@ serve(async (req: Request) => {
       JSON.stringify({ success: false, error: "Método no permitido" }),
       {
         status: 405,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      }
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      },
     );
   }
 
-  const { id_pantalla, id_plan, fecha_inicio, fecha_fin, id_usuario } = (await req.json()) as CreateReservationRequest;
+  const { id_pantalla, id_plan, fecha_inicio, fecha_fin } =
+    (await req.json()) as CreateReservationRequest;
 
   // Validar parámetros requeridos
-  if (!id_pantalla || !id_plan || !fecha_inicio || !fecha_fin || !id_usuario) {
+  if (!id_pantalla || !id_plan || !fecha_inicio || !fecha_fin) {
     return new Response(
       JSON.stringify({
         success: false,
-        error: "Parámetros requeridos: id_pantalla, id_plan, fecha_inicio, fecha_fin, id_usuario",
+        error:
+          "Parámetros requeridos: id_pantalla, id_plan, fecha_inicio, fecha_fin",
       }),
-      { status: 400, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
+      {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      },
     );
   }
 
@@ -66,7 +77,13 @@ serve(async (req: Request) => {
         success: false,
         error: "fecha_inicio debe ser anterior a fecha_fin",
       }),
-      { status: 400, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
+      {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      },
     );
   }
 
@@ -78,10 +95,19 @@ serve(async (req: Request) => {
       .eq("id", id_pantalla)
       .single();
 
-    if (pantallError || !pantalla || pantalla.status !== "activo") {
+    if (pantallError || !pantalla || pantalla.status !== "active") {
       return new Response(
-        JSON.stringify({ success: false, error: "Pantalla no encontrada o inactiva" }),
-        { status: 404, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
+        JSON.stringify({
+          success: false,
+          error: "Pantalla no encontrada o inactiva",
+        }),
+        {
+          status: 404,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+        },
       );
     }
 
@@ -94,31 +120,46 @@ serve(async (req: Request) => {
 
     if (planError || !plan || !plan.activo) {
       return new Response(
-        JSON.stringify({ success: false, error: "Plan no encontrado o inactivo" }),
-        { status: 404, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
+        JSON.stringify({
+          success: false,
+          error: "Plan no encontrado o inactivo",
+        }),
+        {
+          status: 404,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+        },
       );
     }
 
     // 3. Validar que el usuario existe
-    const { data: usuario, error: usuarioError } = await supabase
-      .from("usuarios")
-      .select("id, email")
-      .eq("id", id_usuario)
-      .single();
+    // const { data: usuario, error: usuarioError } = await supabase
+    //   .from("usuarios")
+    //   .select("id, email")
+    //   .eq("id", id_usuario)
+    //   .single();
 
-    if (usuarioError || !usuario) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Usuario no encontrado" }),
-        { status: 404, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
-      );
-    }
+    // if (usuarioError || !usuario) {
+    //   return new Response(
+    //     JSON.stringify({ success: false, error: "Usuario no encontrado" }),
+    //     {
+    //       status: 404,
+    //       headers: {
+    //         "Content-Type": "application/json",
+    //         "Access-Control-Allow-Origin": "*",
+    //       },
+    //     },
+    //   );
+    // }
 
     // 4. Verificar disponibilidad (máx 6 spots por día)
     const { data: reservacionesExistentes, error: queryError } = await supabase
       .from("reservaciones")
       .select("id, fecha_inicio, fecha_fin")
       .eq("id_pantalla", id_pantalla)
-      .in("status", ["activo", "pagado"]);
+      .in("status", ["active", "pagado"]);
 
     if (queryError) {
       throw queryError;
@@ -150,7 +191,13 @@ serve(async (req: Request) => {
             success: false,
             error: `No hay disponibilidad el ${dateStr}. Máximo 6 spots por día.`,
           }),
-          { status: 409, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
+          {
+            status: 409,
+            headers: {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
+            },
+          },
         );
       }
 
@@ -166,7 +213,6 @@ serve(async (req: Request) => {
         fecha_inicio,
         fecha_fin,
         status: "pendiente",
-        rango_dias: Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)),
       })
       .select("id")
       .single();
@@ -176,7 +222,13 @@ serve(async (req: Request) => {
     }
 
     // 6. Actualizar disponibilidad_dia
-    const availabilityUpdates: Array<{ dia: string; id_reservacion: string; id_pantalla: string; limite_maximo: number; status_dia: string }> = [];
+    const availabilityUpdates: Array<{
+      dia: string;
+      id_reservacion: string;
+      id_pantalla: string;
+      limite_maximo: number;
+      status_dia: string;
+    }> = [];
     const currentDate2 = new Date(fecha_inicio);
     let dayCount = 0;
 
@@ -185,7 +237,6 @@ serve(async (req: Request) => {
       availabilityUpdates.push({
         dia: dateStr,
         id_reservacion: newReservation.id,
-        id_pantalla,
         limite_maximo: 6,
         status_dia: "reservado",
       });
@@ -200,7 +251,10 @@ serve(async (req: Request) => {
 
       if (updateError) {
         // Si falla, eliminar la reservación creada
-        await supabase.from("reservaciones").delete().eq("id", newReservation.id);
+        await supabase
+          .from("reservaciones")
+          .delete()
+          .eq("id", newReservation.id);
         throw updateError;
       }
     }
@@ -211,7 +265,7 @@ serve(async (req: Request) => {
         reservation_id: newReservation.id,
         details: {
           pantalla: pantalla.nombre,
-          usuario: usuario.email,
+          // usuario: usuario.email,
           fecha_inicio,
           fecha_fin,
           dias: dayCount,
@@ -221,11 +275,15 @@ serve(async (req: Request) => {
       }),
       {
         status: 201,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      }
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      },
     );
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+    const errorMessage =
+      error instanceof Error ? error.message : "Error desconocido";
     console.error("Error:", error);
     return new Response(
       JSON.stringify({
@@ -233,7 +291,13 @@ serve(async (req: Request) => {
         error: "Error interno del servidor",
         details: errorMessage,
       }),
-      { status: 500, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
+      {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      },
     );
   }
 });

@@ -1,2 +1,4 @@
-SELECT id, nombre FROM pantallas LIMIT 1;
--- SELECT id, dias FROM planes LIMIT 1;
+SELECT column_name 
+FROM information_schema.columns 
+WHERE table_name = 'disponibilidad_dia'
+ORDER BY ordinal_position;

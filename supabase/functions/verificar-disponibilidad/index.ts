@@ -57,19 +57,6 @@ serve(async (req: Request) => {
       );
     }
 
-    // Obtener disponibilidad para el rango de fechas
-    const { data: disponibilidad, error: disponibilidadError } = await supabase
-      .from("disponibilidad_dia")
-      .select("dia, limite_maximo")
-      .eq("id", id)
-      .gte("dia", fecha_inicio)
-      .lte("dia", fecha_fin)
-      .order("dia");
-
-    if (disponibilidadError) {
-      throw disponibilidadError;
-    }
-
     // Contar reservaciones activas por día
     const diasDisponibles: Record<string, number> = {};
 
@@ -86,7 +73,7 @@ serve(async (req: Request) => {
     const { data: reservaciones, error: reservacionesError } = await supabase
       .from("reservaciones")
       .select("fecha_inicio, fecha_fin, status")
-      .eq("id", id)
+      .eq("id_pantalla", id)
       .in("status", ["active", "pagado"]);
 
     if (reservacionesError) {

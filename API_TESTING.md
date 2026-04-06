@@ -18,7 +18,7 @@ Prueba para ver qué pantallas tienen disponibilidad en un rango de fechas.
 curl -X POST http://127.0.0.1:54321/functions/v1/verificar-disponibilidad \
   -H "Content-Type: application/json" \
   -d '{
-    "id_pantalla": "pantalla-001",
+    "id": "pantalla-001",
     "fecha_inicio": "2026-04-20",
     "fecha_fin": "2026-04-27"
   }'
@@ -27,7 +27,7 @@ curl -X POST http://127.0.0.1:54321/functions/v1/verificar-disponibilidad \
 ### Response Esperado (200 OK)
 ```json
 {
-  "id_pantalla": "pantalla-001",
+  "id": "UUID",
   "nombre_pantalla": "Pantalla Centro Histórico",
   "disponibilidad": {
     "2026-04-20": 6,
@@ -97,7 +97,7 @@ Copia los UUIDs que aparecen.
 curl -X POST http://127.0.0.1:54321/functions/v1/crear-reservacion \
   -H "Content-Type: application/json" \
   -d '{
-    "id_pantalla": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+    "id": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
     "id_plan": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
     "fecha_inicio": "2026-04-20",
     "fecha_fin": "2026-04-27",
@@ -112,7 +112,7 @@ curl -X POST http://127.0.0.1:54321/functions/v1/crear-reservacion \
   "reservation_id": "uuid-de-la-reservacion",
   "details": {
     "pantalla": "Pantalla Centro Histórico",
-    "usuario": "contacto@empresapub.com",
+    // "usuario": "contacto@empresapub.com",
     "fecha_inicio": "2026-04-20",
     "fecha_fin": "2026-04-27",
     "dias": 7,
@@ -161,7 +161,7 @@ $response2 = Invoke-RestMethod -Uri "$BASE_URL/crear-reservacion" `
     id_plan = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"  # ← Reemplazar
     fecha_inicio = "2026-04-20"
     fecha_fin = "2026-04-27"
-    id_usuario = "user-001"
+    # id_usuario = "user-001"
   })
 
 Write-Host ($response2 | ConvertTo-Json -Depth 10) -ForegroundColor Green

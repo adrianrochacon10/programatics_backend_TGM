@@ -18,7 +18,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"id_pantalla\": \"pantalla-001\",\n  \"fecha_inicio\": \"2026-04-20\",\n  \"fecha_fin\": \"2026-04-27\"\n}"
+          "raw": "{\n  \"id\": \"pantalla-001\",\n  \"fecha_inicio\": \"2026-04-20\",\n  \"fecha_fin\": \"2026-04-27\"\n}"
         },
         "url": {
           "raw": "http://127.0.0.1:54321/functions/v1/verificar-disponibilidad",

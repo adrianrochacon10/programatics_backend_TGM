@@ -9,20 +9,11 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 interface CreateReservationRequest {
   id_pantalla: string;
   id_plan: string;
-  fecha_inicio: string; // YYYY-MM-DD
-  fecha_fin: string; // YYYY-MM-DD
-  // id_usuario: string;
-}
-
-interface ReservationResponse {
-  success: boolean;
-  reservation_id?: string;
-  error?: string;
-  details?: string;
+  fecha_inicio: string;
+  fecha_fin: string;
 }
 
 serve(async (req: Request) => {
-  // CORS
   if (req.method === "OPTIONS") {
     return new Response("ok", {
       headers: {
@@ -49,7 +40,6 @@ serve(async (req: Request) => {
   const { id_pantalla, id_plan, fecha_inicio, fecha_fin } =
     (await req.json()) as CreateReservationRequest;
 
-  // Validar parámetros requeridos
   if (!id_pantalla || !id_plan || !fecha_inicio || !fecha_fin) {
     return new Response(
       JSON.stringify({
@@ -67,7 +57,6 @@ serve(async (req: Request) => {
     );
   }
 
-  // Validar fechas
   const startDate = new Date(fecha_inicio);
   const endDate = new Date(fecha_fin);
 
@@ -88,7 +77,7 @@ serve(async (req: Request) => {
   }
 
   try {
-    // 1. Validar que la pantalla existe y está activa
+    // 1. Validar pantalla
     const { data: pantalla, error: pantallError } = await supabase
       .from("pantallas")
       .select("id, nombre, status")
@@ -111,7 +100,7 @@ serve(async (req: Request) => {
       );
     }
 
-    // 2. Validar que el plan existe
+    // 2. Validar plan
     const { data: plan, error: planError } = await supabase
       .from("planes")
       .select("id, dias, spots_dia, precio, activo")
@@ -134,77 +123,35 @@ serve(async (req: Request) => {
       );
     }
 
-    // 3. Validar que el usuario existe
-    // const { data: usuario, error: usuarioError } = await supabase
-    //   .from("usuarios")
-    //   .select("id, email")
-    //   .eq("id", id_usuario)
-    //   .single();
-
-    // if (usuarioError || !usuario) {
-    //   return new Response(
-    //     JSON.stringify({ success: false, error: "Usuario no encontrado" }),
-    //     {
-    //       status: 404,
-    //       headers: {
-    //         "Content-Type": "application/json",
-    //         "Access-Control-Allow-Origin": "*",
-    //       },
-    //     },
-    //   );
-    // }
-
-    // 4. Verificar disponibilidad (máx 6 spots por día)
-    const { data: reservacionesExistentes, error: queryError } = await supabase
-      .from("reservaciones")
-      .select("id, fecha_inicio, fecha_fin")
+    // 3. Verificar disponibilidad desde disponibilidad_dia
+    const { data: diasOcupados, error: dispError } = await supabase
+      .from("disponibilidad_dia")
+      .select("dia, spots_disponibles")
       .eq("id_pantalla", id_pantalla)
-      .in("status", ["active", "pagado"]);
+      .gte("dia", fecha_inicio)
+      .lte("dia", fecha_fin)
+      .eq("status_dia", "lleno");
 
-    if (queryError) {
-      throw queryError;
-    }
+    if (dispError) throw dispError;
 
-    // Contar spots ocupados por día en el rango solicitado
-    const spotsOcupados: Record<string, number> = {};
-
-    if (reservacionesExistentes) {
-      for (const res of reservacionesExistentes) {
-        const currentDate = new Date(res.fecha_inicio);
-        while (currentDate <= new Date(res.fecha_fin)) {
-          const dateStr = currentDate.toISOString().split("T")[0];
-          spotsOcupados[dateStr] = (spotsOcupados[dateStr] || 0) + 1;
-          currentDate.setDate(currentDate.getDate() + 1);
-        }
-      }
-    }
-
-    // Verificar que no hay más de 6 spots ocupados en ningún día
-    const currentDate = new Date(fecha_inicio);
-    while (currentDate <= endDate) {
-      const dateStr = currentDate.toISOString().split("T")[0];
-      const ocupados = spotsOcupados[dateStr] || 0;
-
-      if (ocupados >= 6) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: `No hay disponibilidad el ${dateStr}. Máximo 6 spots por día.`,
-          }),
-          {
-            status: 409,
-            headers: {
-              "Content-Type": "application/json",
-              "Access-Control-Allow-Origin": "*",
-            },
+    if (diasOcupados && diasOcupados.length > 0) {
+      const diaLleno = diasOcupados[0].dia;
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `No hay disponibilidad el ${diaLleno}. Día lleno.`,
+        }),
+        {
+          status: 409,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
           },
-        );
-      }
-
-      currentDate.setDate(currentDate.getDate() + 1);
+        },
+      );
     }
 
-    // 5. Crear reservación
+    // 4. Crear reservación
     const { data: newReservation, error: createError } = await supabase
       .from("reservaciones")
       .insert({
@@ -221,42 +168,29 @@ serve(async (req: Request) => {
       throw createError || new Error("Error al crear reservación");
     }
 
-    // 6. Actualizar disponibilidad_dia
-    const availabilityUpdates: Array<{
-      dia: string;
-      id_reservacion: string;
-      id_pantalla: string;
-      limite_maximo: number;
-      status_dia: string;
-    }> = [];
-    const currentDate2 = new Date(fecha_inicio);
+    // 5. Decrementar spots por cada día usando función SQL atómica
     let dayCount = 0;
+    const currentDate = new Date(fecha_inicio);
 
-    while (currentDate2 <= endDate) {
-      const dateStr = currentDate2.toISOString().split("T")[0];
-      availabilityUpdates.push({
-        dia: dateStr,
-        id_reservacion: newReservation.id,
-        limite_maximo: 6,
-        status_dia: "reservado",
+    while (currentDate <= endDate) {
+      const dateStr = currentDate.toISOString().split("T")[0];
+
+      const { error: rpcError } = await supabase.rpc("decrementar_spot", {
+        p_pantalla: id_pantalla,
+        p_dia: dateStr,
       });
-      dayCount++;
-      currentDate2.setDate(currentDate2.getDate() + 1);
-    }
 
-    if (availabilityUpdates.length > 0) {
-      const { error: updateError } = await supabase
-        .from("disponibilidad_dia")
-        .insert(availabilityUpdates);
-
-      if (updateError) {
-        // Si falla, eliminar la reservación creada
+      if (rpcError) {
+        // Rollback: eliminar reservación creada
         await supabase
           .from("reservaciones")
           .delete()
           .eq("id", newReservation.id);
-        throw updateError;
+        throw rpcError;
       }
+
+      dayCount++;
+      currentDate.setDate(currentDate.getDate() + 1);
     }
 
     return new Response(
@@ -265,7 +199,6 @@ serve(async (req: Request) => {
         reservation_id: newReservation.id,
         details: {
           pantalla: pantalla.nombre,
-          // usuario: usuario.email,
           fecha_inicio,
           fecha_fin,
           dias: dayCount,

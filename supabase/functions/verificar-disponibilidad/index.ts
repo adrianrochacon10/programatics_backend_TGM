@@ -7,7 +7,7 @@ const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 interface AvailabilityRequest {
-  id_pantalla: string;
+  id: string;
   fecha_inicio: string; // YYYY-MM-DD
   fecha_fin: string; // YYYY-MM-DD
 }
@@ -31,12 +31,12 @@ serve(async (req: Request) => {
     });
   }
 
-  const { id_pantalla, fecha_inicio, fecha_fin } = (await req.json()) as AvailabilityRequest;
+  const { id, fecha_inicio, fecha_fin } = (await req.json()) as AvailabilityRequest;
 
-  if (!id_pantalla || !fecha_inicio || !fecha_fin) {
+  if (!id || !fecha_inicio || !fecha_fin) {
     return new Response(
       JSON.stringify({
-        error: "Parámetros requeridos: id_pantalla, fecha_inicio, fecha_fin",
+        error: "Parámetros requeridos: id, fecha_inicio, fecha_fin",
       }),
       { status: 400, headers: { "Content-Type": "application/json" } }
     );
@@ -47,10 +47,10 @@ serve(async (req: Request) => {
     const { data: pantalla, error: pantallError } = await supabase
       .from("pantallas")
       .select("id, nombre, status")
-      .eq("id", id_pantalla)
+      .eq("id", id)
       .single();
 
-    if (pantallError || !pantalla || pantalla.status !== "activo") {
+    if (pantallError || !pantalla || pantalla.status !== "active") {
       return new Response(
         JSON.stringify({ error: "Pantalla no encontrada o inactiva" }),
         { status: 404, headers: { "Content-Type": "application/json" } }
@@ -61,7 +61,7 @@ serve(async (req: Request) => {
     const { data: disponibilidad, error: disponibilidadError } = await supabase
       .from("disponibilidad_dia")
       .select("dia, limite_maximo")
-      .eq("id_pantalla", id_pantalla)
+      .eq("id", id)
       .gte("dia", fecha_inicio)
       .lte("dia", fecha_fin)
       .order("dia");
@@ -86,8 +86,8 @@ serve(async (req: Request) => {
     const { data: reservaciones, error: reservacionesError } = await supabase
       .from("reservaciones")
       .select("fecha_inicio, fecha_fin, status")
-      .eq("id_pantalla", id_pantalla)
-      .in("status", ["activo", "pagado"]);
+      .eq("id", id)
+      .in("status", ["active", "pagado"]);
 
     if (reservacionesError) {
       throw reservacionesError;
@@ -117,7 +117,7 @@ serve(async (req: Request) => {
 
     return new Response(
       JSON.stringify({
-        id_pantalla,
+        id,
         nombre_pantalla: pantalla.nombre,
         disponibilidad: diasDisponibles,
       }),

@@ -1,0 +1,85 @@
+{
+  "info": {
+    "name": "The Good Mark APIs",
+    "description": "Collection para testear los endpoints de reservación de pantallas",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Verificar Disponibilidad",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id_pantalla\": \"pantalla-001\",\n  \"fecha_inicio\": \"2026-04-20\",\n  \"fecha_fin\": \"2026-04-27\"\n}"
+        },
+        "url": {
+          "raw": "http://127.0.0.1:54321/functions/v1/verificar-disponibilidad",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "54321",
+          "path": [
+            "functions",
+            "v1",
+            "verificar-disponibilidad"
+          ]
+        },
+        "description": "Verifica qué pantallas tienen disponibilidad en un rango de fechas.\n\nResponse esperado (200):\n{\n  \"id_pantalla\": \"pantalla-001\",\n  \"nombre_pantalla\": \"Pantalla Centro Histórico\",\n  \"disponibilidad\": {\n    \"2026-04-20\": 6,\n    \"2026-04-21\": 6,\n    ...\n  }\n}"
+      }
+    },
+    {
+      "name": "2. Crear Reservación",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id_pantalla\": \"pantalla-001\",\n  \"id_plan\": \"{{plan_uuid}}\",\n  \"fecha_inicio\": \"2026-04-20\",\n  \"fecha_fin\": \"2026-04-27\",\n  \"id_usuario\": \"user-001\"\n}\n\nNOTA: Reemplaza {{plan_uuid}} con el UUID real del plan.\nPuedo obtenerlo con esta query en el dashboard:\nSELECT id FROM planes LIMIT 1;\n\nEjemplo de UUID: \"d4e5c6f7-8901-2345-6789-abcdef123456\""
+        },
+        "url": {
+          "raw": "http://127.0.0.1:54321/functions/v1/crear-reservacion",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "54321",
+          "path": [
+            "functions",
+            "v1",
+            "crear-reservacion"
+          ]
+        },
+        "description": "Crea una reservación validando disponibilidad, pantalla, plan y usuario.\n\nResponse esperado (201):\n{\n  \"success\": true,\n  \"reservation_id\": \"uuid\",\n  \"details\": {\n    \"pantalla\": \"nombre\",\n    \"usuario\": \"email\",\n    \"fecha_inicio\": \"2026-04-20\",\n    \"fecha_fin\": \"2026-04-27\",\n    \"dias\": 7,\n    \"precio_total\": 1500.00,\n    \"status\": \"pendiente\"\n  }\n}"
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "plan_uuid",
+      "value": "d4e5c6f7-8901-2345-6789-abcdef123456",
+      "type": "string",
+      "description": "UUID del plan a usar. Obtén el valor real en el dashboard con: SELECT id FROM planes LIMIT 1;"
+    }
+  ]
+}

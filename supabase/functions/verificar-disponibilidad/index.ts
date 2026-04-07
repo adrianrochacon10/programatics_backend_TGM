@@ -23,22 +23,28 @@ serve(async (req: Request) => {
       },
     });
   }
-
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Método no permitido" }), {
-      status: 405,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ success: false, error: "Método no permitido" }),
+      {
+        status: 405,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      },
+    );
   }
 
-  const { id, fecha_inicio, fecha_fin } = (await req.json()) as AvailabilityRequest;
+  const { id, fecha_inicio, fecha_fin } =
+    (await req.json()) as AvailabilityRequest;
 
   if (!id || !fecha_inicio || !fecha_fin) {
     return new Response(
       JSON.stringify({
         error: "Parámetros requeridos: id, fecha_inicio, fecha_fin",
       }),
-      { status: 400, headers: { "Content-Type": "application/json" } }
+      { status: 400, headers: { "Content-Type": "application/json" } },
     );
   }
 
@@ -53,7 +59,7 @@ serve(async (req: Request) => {
     if (pantallError || !pantalla || pantalla.status !== "active") {
       return new Response(
         JSON.stringify({ error: "Pantalla no encontrada o inactiva" }),
-        { status: 404, headers: { "Content-Type": "application/json" } }
+        { status: 404, headers: { "Content-Type": "application/json" } },
       );
     }
 
@@ -64,7 +70,11 @@ serve(async (req: Request) => {
     const startDate = new Date(fecha_inicio);
     const endDate = new Date(fecha_fin);
 
-    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+    for (
+      let d = new Date(startDate);
+      d <= endDate;
+      d.setDate(d.getDate() + 1)
+    ) {
       const dateStr = d.toISOString().split("T")[0];
       diasDisponibles[dateStr] = 6; // Máximo 6 spots por día
     }
@@ -81,12 +91,15 @@ serve(async (req: Request) => {
     }
 
     // Filtrar reservaciones que se superponen con el rango solicitado
-    const reservacionesEnRango = reservaciones?.filter((res: {fecha_inicio: string; fecha_fin: string}) => {
-      const resStart = new Date(res.fecha_inicio);
-      const resEnd = new Date(res.fecha_fin);
-      // Dos rangos se superponen si: start1 <= end2 AND end1 >= start2
-      return startDate <= resEnd && endDate >= resStart;
-    }) || [];
+    const reservacionesEnRango =
+      reservaciones?.filter(
+        (res: { fecha_inicio: string; fecha_fin: string }) => {
+          const resStart = new Date(res.fecha_inicio);
+          const resEnd = new Date(res.fecha_fin);
+          // Dos rangos se superponen si: start1 <= end2 AND end1 >= start2
+          return startDate <= resEnd && endDate >= resStart;
+        },
+      ) || [];
 
     // Calcular spots ocupados por día
     if (reservacionesEnRango.length > 0) {
@@ -110,15 +123,22 @@ serve(async (req: Request) => {
       }),
       {
         status: 200,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      }
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      },
     );
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+    const errorMessage =
+      error instanceof Error ? error.message : "Error desconocido";
     console.error("Error:", error);
     return new Response(
-      JSON.stringify({ error: "Error interno del servidor", details: errorMessage }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      JSON.stringify({
+        error: "Error interno del servidor",
+        details: errorMessage,
+      }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }
 });

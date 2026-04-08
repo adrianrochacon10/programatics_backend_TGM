@@ -60,7 +60,7 @@ serve(async (req: Request) => {
   // ── PASO 5: Validar que la reservación existe y no está pagada ──
   const { data: reservacion, error: resError } = await supabase
     .from("reservaciones")
-    .select("id, monto_total, estado_pago")
+    .select("id, monto_total, monto_con_descuento, estado_pago")
     .eq("id", id_reservacion)
     .single();
 
@@ -80,8 +80,10 @@ serve(async (req: Request) => {
       { status: 409, headers },
     );
   }
+  const montoEsperado =
+    reservacion.monto_con_descuento ?? reservacion.monto_total;
 
-  if (Number(reservacion.monto_total) !== Number(monto)) {
+  if (Number(montoEsperado) !== Number(monto)) {
     return new Response(
       JSON.stringify({
         success: false,

@@ -1,0 +1,2 @@
+ALTER TABLE codigos_descuento
+ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now ();

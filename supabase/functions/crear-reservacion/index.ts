@@ -107,6 +107,8 @@ serve(async (req: Request) => {
       .eq("id", id_plan)
       .single();
 
+
+    console.log("Plan encontrado:", plan);
     if (planError || !plan || !plan.activo) {
       return new Response(
         JSON.stringify({
@@ -160,6 +162,8 @@ serve(async (req: Request) => {
         fecha_inicio,
         fecha_fin,
         status: "pendiente",
+        monto_total: plan.precio,
+        estado_pago: "pendiente",
       })
       .select("id")
       .single();

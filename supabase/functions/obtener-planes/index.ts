@@ -6,21 +6,16 @@ const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-interface Planes {
-  id: string;
-  nombre_paquete: string;
-  spots_totales: number;
-  dias: number;
-  precio: number;
-  spots_dia: string;
-  activo: boolean;
-}
+const headers = {
+  "Content-Type": "application/json",
+  "Access-Control-Allow-Origin": "*",
+};
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", {
       headers: {
-        "Access-Control-Allow-Origin": "*",
+        ...headers,
         "Access-Control-Allow-Methods": "GET, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type",
       },
@@ -30,13 +25,7 @@ serve(async (req: Request) => {
   if (req.method !== "GET") {
     return new Response(
       JSON.stringify({ success: false, error: "Método no permitido" }),
-      {
-        status: 405,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
-      },
+      { status: 405, headers },
     );
   }
 
@@ -44,28 +33,22 @@ serve(async (req: Request) => {
     // Obtener parámetros de query (opcionales)
     const url = new URL(req.url);
     const id_plan = url.searchParams.get("id_plan");
-    const nombre = url.searchParams.get("nombre_plan");
-    const status = url.searchParams.get("activo") || "true";
+    const nombre_plan = url.searchParams.get("nombre_plan");
 
-    // Construir query base
-    let query = supabase
-      .from("planes")
-      .select("*")
-      .eq("activo", activo);
+    // Query base — solo planes activos
+    let query = supabase.from("planes").select("*").eq("activo", true); // ← valor fijo true, no variable
 
-    // Aplicar filtros opcionales
+    // Filtros opcionales
     if (id_plan) {
-      query = query.eq("id", id_pantalla);
+      query = query.eq("id", id_plan); // ← era id_pantalla, corregido
     }
     if (nombre_plan) {
-      query = query.ilike("nombre", `%${nombre_plan}%`);
+      query = query.ilike("nombre_paquete", `%${nombre_plan}%`);
     }
 
     const { data: planes, error } = await query;
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     return new Response(
       JSON.stringify({
@@ -73,13 +56,7 @@ serve(async (req: Request) => {
         count: planes?.length || 0,
         data: planes,
       }),
-      {
-        status: 200,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
-      },
+      { status: 200, headers },
     );
   } catch (error) {
     const errorMessage =
@@ -91,13 +68,7 @@ serve(async (req: Request) => {
         error: "Error al obtener Planes",
         details: errorMessage,
       }),
-      {
-        status: 500,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
-      },
+      { status: 500, headers },
     );
   }
 });

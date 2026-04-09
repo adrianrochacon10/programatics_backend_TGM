@@ -1,2 +1,1 @@
-ALTER TABLE reservaciones
-ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+INSERT INTO planes (nombre_paquete, spots_totales, ) VALUES (valor1, valor2)

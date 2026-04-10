@@ -9,6 +9,7 @@ interface CreateUserRequest {
   nombre: string;
   email: string;
   rol: string;
+  telefono: 
 }
 
 serve(async (req: Request) => {

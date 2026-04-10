@@ -55,10 +55,13 @@ Las Edge Functions son funciones serverless alojadas en Supabase que manejan la 
 ```json
 {
   "id_pantalla": "pantalla-001",
-  "id_plan": "plan-002",
+  "id_plan": "550e8400-e29b-41d4-a716-446655440000",
   "fecha_inicio": "2026-04-20",
   "fecha_fin": "2026-04-27",
-  "id_usuario": "user-001"
+  "email": "contacto@empresapub.com",
+  "nombre": "Empresa Pub",
+  "telefono": "+52-618-123-4567",
+  "codigo_descuento": "PROMO10"
 }
 ```
 
@@ -66,15 +69,23 @@ Las Edge Functions son funciones serverless alojadas en Supabase que manejan la 
 ```json
 {
   "success": true,
+  "id_reservacion": "550e8400-e29b-41d4-a716-446655440000",
   "reservation_id": "550e8400-e29b-41d4-a716-446655440000",
   "details": {
     "pantalla": "Centro Comercial Durango - Entrada Principal",
-    "usuario": "contacto@empresapub.com",
+    "contacto": {
+      "email": "contacto@empresapub.com",
+      "nombre": "Empresa Pub",
+      "telefono": "+52-618-123-4567"
+    },
     "fecha_inicio": "2026-04-20",
     "fecha_fin": "2026-04-27",
-    "dias": 7,
-    "precio_total": 3000.00,
-    "status": "pendiente"
+    "dias": 8,
+    "precio_total": 3000.0,
+    "precio_final": 2700.0,
+    "codigo_descuento": "PROMO10",
+    "status": "pendiente",
+    "estado_pago": "pendiente"
   }
 }
 ```
@@ -96,9 +107,10 @@ Las Edge Functions son funciones serverless alojadas en Supabase que manejan la 
 - ✅ Validez de fechas (inicio < fin)
 - ✅ Existencia y estado activo de la pantalla
 - ✅ Existencia y estado activo del plan
-- ✅ Existencia del usuario
+- ✅ Datos de contacto del cliente
 - ✅ Disponibilidad de spots (máx 6 por día)
-- ✅ Creación de registros en `disponibilidad_dia`
+- ✅ Creación transaccional de `reservaciones` y `ventas`
+- ✅ Aplicación de cupón (si se envía)
 
 ---
 
@@ -122,10 +134,13 @@ curl -X POST http://localhost:54321/functions/v1/crear-reservacion \
   -H "Content-Type: application/json" \
   -d '{
     "id_pantalla": "pantalla-001",
-    "id_plan": "plan-002",
+    "id_plan": "550e8400-e29b-41d4-a716-446655440000",
     "fecha_inicio": "2026-04-20",
     "fecha_fin": "2026-04-27",
-    "id_usuario": "user-001"
+    "email": "contacto@empresapub.com",
+    "nombre": "Empresa Pub",
+    "telefono": "+52-618-123-4567",
+    "codigo_descuento": "PROMO10"
   }'
 ```
 

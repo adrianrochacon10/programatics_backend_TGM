@@ -11,6 +11,10 @@ interface CreateReservationRequest {
   id_plan: string;
   fecha_inicio: string;
   fecha_fin: string;
+  email: string;
+  nombre: string;
+  telefono: string;
+  codigo_descuento?: string | null;
 }
 
 serve(async (req: Request) => {
@@ -37,15 +41,39 @@ serve(async (req: Request) => {
     );
   }
 
-  const { id_pantalla, id_plan, fecha_inicio, fecha_fin } =
-    (await req.json()) as CreateReservationRequest;
+  let body: CreateReservationRequest;
+  try {
+    body = (await req.json()) as CreateReservationRequest;
+  } catch (_) {
+    return new Response(
+      JSON.stringify({ success: false, error: "Body JSON inválido" }),
+      {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      },
+    );
+  }
 
-  if (!id_pantalla || !id_plan || !fecha_inicio || !fecha_fin) {
+  const {
+    id_pantalla,
+    id_plan,
+    fecha_inicio,
+    fecha_fin,
+    email,
+    nombre,
+    telefono,
+    codigo_descuento,
+  } = body;
+
+  if (!id_pantalla || !id_plan || !fecha_inicio || !fecha_fin || !email || !nombre || !telefono) {
     return new Response(
       JSON.stringify({
         success: false,
         error:
-          "Parámetros requeridos: id_pantalla, id_plan, fecha_inicio, fecha_fin",
+          "Parámetros requeridos: id_pantalla, id_plan, fecha_inicio, fecha_fin, email, nombre, telefono",
       }),
       {
         status: 400,
@@ -59,6 +87,22 @@ serve(async (req: Request) => {
 
   const startDate = new Date(fecha_inicio);
   const endDate = new Date(fecha_fin);
+
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: "Formato de fecha inválido. Usa YYYY-MM-DD",
+      }),
+      {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      },
+    );
+  }
 
   if (startDate >= endDate) {
     return new Response(
@@ -153,61 +197,61 @@ serve(async (req: Request) => {
       );
     }
 
-    // 4. Crear reservación
-    const { data: newReservation, error: createError } = await supabase
+    // 4. Crear reservación + venta + descuento en una sola transacción SQL
+    const normalizedCoupon =
+      typeof codigo_descuento === "string" && codigo_descuento.trim().length > 0
+        ? codigo_descuento.trim().toUpperCase()
+        : null;
+
+    const { data: id_reservacion, error: txError } = await supabase.rpc(
+      "crear_reservacion_transaccion",
+      {
+        p_id_pantalla: id_pantalla,
+        p_id_plan: id_plan,
+        p_fecha_inicio: fecha_inicio,
+        p_fecha_fin: fecha_fin,
+        p_email: email.trim().toLowerCase(),
+        p_nombre: nombre.trim(),
+        p_telefono: telefono.trim(),
+        p_codigo_descuento: normalizedCoupon,
+      },
+    );
+
+    if (txError || !id_reservacion) {
+      throw txError || new Error("Error al crear reservación en transacción");
+    }
+
+    const dayCount =
+      Math.floor(
+        (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
+      ) + 1;
+
+    const { data: reservationData } = await supabase
       .from("reservaciones")
-      .insert({
-        id_pantalla,
-        id_plan,
-        fecha_inicio,
-        fecha_fin,
-        status: "pendiente",
-        monto_total: plan.precio,
-        estado_pago: "pendiente",
-      })
-      .select("id")
+      .select("status, estado_pago, monto_total, monto_con_descuento, codigo_descuento")
+      .eq("id", id_reservacion)
       .single();
-
-    if (createError || !newReservation) {
-      throw createError || new Error("Error al crear reservación");
-    }
-
-    // 5. Decrementar spots por cada día usando función SQL atómica
-    let dayCount = 0;
-    const currentDate = new Date(fecha_inicio);
-
-    while (currentDate <= endDate) {
-      const dateStr = currentDate.toISOString().split("T")[0];
-
-      const { error: rpcError } = await supabase.rpc("decrementar_spot", {
-        p_pantalla: id_pantalla,
-        p_dia: dateStr,
-      });
-
-      if (rpcError) {
-        // Rollback: eliminar reservación creada
-        await supabase
-          .from("reservaciones")
-          .delete()
-          .eq("id", newReservation.id);
-        throw rpcError;
-      }
-
-      dayCount++;
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
 
     return new Response(
       JSON.stringify({
         success: true,
-        reservation_id: newReservation.id,
+        id_reservacion,
+        reservation_id: id_reservacion,
         details: {
           pantalla: pantalla.nombre,
+          contacto: {
+            email: email.trim().toLowerCase(),
+            nombre: nombre.trim(),
+            telefono: telefono.trim(),
+          },
           fecha_inicio,
           fecha_fin,
           dias: dayCount,
-          precio_total: plan.precio,
-          status: "pendiente",
+          precio_total: reservationData?.monto_total ?? plan.precio,
+          precio_final: reservationData?.monto_con_descuento ?? plan.precio,
+          codigo_descuento: reservationData?.codigo_descuento ?? normalizedCoupon,
+          status: reservationData?.status ?? "pendiente",
+          estado_pago: reservationData?.estado_pago ?? "pendiente",
         },
       }),
       {

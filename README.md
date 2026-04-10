@@ -7,6 +7,7 @@ Backend de reservas y gestión de cines para The Good Mark. API REST construida 
 - [Requisitos Previos](#requisitos-previos)
 - [Instalación](#instalación)
 - [Configuración](#configuración)
+- [Flujo Recomendado de Supabase CLI](#flujo-recomendado-de-supabase-cli-local--remoto)
 - [Ejecución del Servidor](#ejecución-del-servidor)
 - [Estructura del Proyecto](#estructura-del-proyecto)
 - [Endpoints de la API](#endpoints-de-la-api)
@@ -72,6 +73,81 @@ choco install deno
 ---
 
 ## ⚙️ Configuración
+
+### Flujo Recomendado de Supabase CLI (Local + Remoto)
+
+Usa esta secuencia para dejar el proyecto listo y sincronizado con tu base remota.
+
+#### 1) Inicializar proyecto local (solo si no existe carpeta `supabase/`)
+
+```bash
+supabase init
+```
+
+Esto crea la carpeta `supabase/` con `config.toml`, migraciones y estructura de funciones.
+
+#### 2) Autenticarte en Supabase CLI
+
+```bash
+supabase login
+```
+
+Se abrirá el navegador para iniciar sesión.
+
+#### 3) Vincular tu proyecto remoto (importante)
+
+```bash
+supabase link --project-ref TU_PROJECT_REF
+```
+
+Dónde obtener `project-ref`:
+- Ve a tu proyecto en Supabase
+- Settings -> General
+- Copia el Project ID
+
+Ejemplo:
+
+```bash
+supabase link --project-ref abcd1234xyz
+```
+
+#### 4) Iniciar stack local
+
+```bash
+supabase start
+```
+
+Esto levanta Postgres, API, Auth, Storage y Studio en Docker.
+
+#### 5) Traer esquema remoto al proyecto local (opcional, recomendado)
+
+```bash
+supabase db pull
+```
+
+Genera una migración con el estado actual de la base remota para que tu repositorio quede alineado.
+
+#### 6) Subir migraciones locales a la base conectada
+
+```bash
+supabase db push
+```
+
+Aplica cambios de `supabase/migrations/` a la base objetivo (local o remota según contexto/link).
+
+#### 7) Verificar estado
+
+```bash
+supabase status
+```
+
+Si `supabase` no está en tu PATH (común en Windows), usa `npx`:
+
+```bash
+npx supabase start
+npx supabase db pull
+npx supabase db push
+```
 
 ### Paso 1: Configurar Variables de Entorno
 

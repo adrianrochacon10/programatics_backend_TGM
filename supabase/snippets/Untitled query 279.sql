@@ -1,1 +1,5 @@
-INSERT INTO planes (nombre_paquete, spots_totales, ) VALUES (valor1, valor2)
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_schema = 'public'
+  AND table_name = 'disponibilidad_dia'
+ORDER BY ordinal_position;

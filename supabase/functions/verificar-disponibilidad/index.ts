@@ -23,6 +23,7 @@ serve(async (req: Request) => {
       },
     });
   }
+
   if (req.method !== "POST") {
     return new Response(
       JSON.stringify({ success: false, error: "Método no permitido" }),
@@ -49,24 +50,22 @@ serve(async (req: Request) => {
   }
 
   try {
-    // Validar que la pantalla existe y está activa
-    const { data: pantalla, error: pantallError } = await supabase
+    // 1. Validar que la pantalla existe y está activa
+    const { data: pantalla, error: pantallaError } = await supabase
       .from("pantallas")
       .select("id, nombre, status")
       .eq("id", id)
       .single();
 
-    if (pantallError || !pantalla || pantalla.status !== "active") {
+    if (pantallaError || !pantalla || pantalla.status !== "active") {
       return new Response(
         JSON.stringify({ error: "Pantalla no encontrada o inactiva" }),
         { status: 404, headers: { "Content-Type": "application/json" } },
       );
     }
 
-    // Contar reservaciones activas por día
+    // 2. Inicializar todos los días con 6 spots disponibles
     const diasDisponibles: Record<string, number> = {};
-
-    // Inicializar todos los días con 6 spots disponibles
     const startDate = new Date(fecha_inicio);
     const endDate = new Date(fecha_fin);
 
@@ -76,42 +75,51 @@ serve(async (req: Request) => {
       d.setDate(d.getDate() + 1)
     ) {
       const dateStr = d.toISOString().split("T")[0];
-      diasDisponibles[dateStr] = 6; // Máximo 6 spots por día
+      diasDisponibles[dateStr] = 6;
     }
 
-    // Restar reservaciones activas
+    // 3. Restar reservaciones activas
     const { data: reservaciones, error: reservacionesError } = await supabase
       .from("reservaciones")
       .select("fecha_inicio, fecha_fin, status")
       .eq("id_pantalla", id)
       .in("status", ["active", "pagado"]);
 
-    if (reservacionesError) {
-      throw reservacionesError;
-    }
+    if (reservacionesError) throw reservacionesError;
 
-    // Filtrar reservaciones que se superponen con el rango solicitado
     const reservacionesEnRango =
       reservaciones?.filter(
         (res: { fecha_inicio: string; fecha_fin: string }) => {
           const resStart = new Date(res.fecha_inicio);
           const resEnd = new Date(res.fecha_fin);
-          // Dos rangos se superponen si: start1 <= end2 AND end1 >= start2
           return startDate <= resEnd && endDate >= resStart;
         },
       ) || [];
 
-    // Calcular spots ocupados por día
-    if (reservacionesEnRango.length > 0) {
-      for (const res of reservacionesEnRango) {
-        const currentDate = new Date(res.fecha_inicio);
-        while (currentDate <= new Date(res.fecha_fin)) {
-          const dateStr = currentDate.toISOString().split("T")[0];
-          if (diasDisponibles[dateStr] !== undefined) {
-            diasDisponibles[dateStr]--;
-          }
-          currentDate.setDate(currentDate.getDate() + 1);
+    for (const res of reservacionesEnRango) {
+      const currentDate = new Date(res.fecha_inicio);
+      while (currentDate <= new Date(res.fecha_fin)) {
+        const dateStr = currentDate.toISOString().split("T")[0];
+        if (diasDisponibles[dateStr] !== undefined) {
+          diasDisponibles[dateStr] = Math.max(0, diasDisponibles[dateStr] - 1);
         }
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    }
+
+    // 4. Sobrescribir con disponibilidad_dia (fuente de verdad final)
+    const { data: diasRegistrados, error: diasError } = await supabase
+      .from("disponibilidad_dia")
+      .select("dia, spots_disponibles")
+      .eq("id_pantalla", id)
+      .gte("dia", fecha_inicio)
+      .lte("dia", fecha_fin);
+
+    if (diasError) throw diasError;
+
+    if (diasRegistrados && diasRegistrados.length > 0) {
+      for (const dia of diasRegistrados) {
+        diasDisponibles[dia.dia] = dia.spots_disponibles;
       }
     }
 
@@ -138,7 +146,13 @@ serve(async (req: Request) => {
         error: "Error interno del servidor",
         details: errorMessage,
       }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
+      {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      },
     );
   }
 });
